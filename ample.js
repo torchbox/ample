@@ -188,11 +188,73 @@
 		return self;
 	}
 	
+	function WebAudioDriver() {
+		var self = BaseDriver();
+		var audio;
+		
+		self.driverName = 'WebAudioDriver';
+		
+		self.init = function(onSuccess, onFailure) {
+			try {
+				// we need an audio context to work with..
+				audio = new webkitAudioContext();			
+				onSuccess();
+			} catch(e) {
+				onFailure();
+			}
+			return self;
+		}
+		
+		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {		
+			var path = soundSpec.mp3Path || soundSpec.mp3Path != '' ? soundSpec.mp3Path : soundSpec.oggPath;		
+			var buffer, source = audio.createBufferSource(), request = new XMLHttpRequest();
+			
+			/* request audio data and decode */
+			request.addEventListener('load', function(e) {
+				audio.decodeAudioData(request.response, function(decoded) {
+					/* we now have decoded audio data */
+					source.buffer = decoded;
+					
+					/* if volume has been set, we need to route via an AudioGainNode */
+					if(soundSpec.volume) {
+						var gain = context.createGainNode();
+						source.connect(gainNode);
+						gain.connect(audio.destination);
+						gain.gain.volume = soundSpec.volume;
+					} else {
+						source.connect(audio.destination);
+					}
+					
+				}, function(e) { onFailure(); });
+			});
+			
+			/* trigger XHR */
+			request.open('GET', path, true);
+			request.responseType = "arraybuffer";
+			request.send();
+			
+			onSuccess({
+				'play': function() {
+					source.noteOn(0);
+				},
+				'stop': function() {
+					source.noteOff(0);
+				}
+			});
+			
+			return self;
+		}
+		return self;
+	}
+	
 	var Ample = {};
 	
 	if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
 		/* trust these browsers to do html audio better than flash... */
 		var drivers = [HtmlAudioDriver(), FlashMp3Driver()];
+	} else if($.browser.webkit) {
+		/* webkit nightlies & chrome now support web audio, but we should still fallback to regular methods */
+		var drivers = [WebAudioDriver(), HtmlAudioDriver(), FlashMp3Driver()];
 	} else {
 		var drivers = [FlashMp3Driver(), HtmlAudioDriver()];
 	}
