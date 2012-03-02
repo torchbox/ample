@@ -190,10 +190,11 @@
 	
 	function WebAudioDriver() {
 		var self = BaseDriver();
-		var audio;
-		
 		self.driverName = 'WebAudioDriver';
 		
+		/* our audio context */
+		var audio;
+				
 		self.init = function(onSuccess, onFailure) {
 			try {
 				// we need an audio context to work with..
@@ -212,26 +213,32 @@
 			/* request audio data and decode */
 			request.addEventListener('load', function(e) {
 				audio.decodeAudioData(request.response, function(decoded) {
-					/* we now have decoded audio data */
-					var source = audio.createBufferSource();
-					source.buffer = decoded;
-					source.loop = true;
-					
-					/* if volume has been set, we need to route via an AudioGainNode */
-					if(soundSpec.volume) {
-						var gain = audio.createGainNode();
-						source.connect(gain);
-						gain.connect(audio.destination);
-						gain.gain.volume = soundSpec.volume;
-					} else {
-						source.connect(audio.destination);
-					}
-					
+				
+					/* we now have decoded audio data */					
+					var source = null;
 					onSuccess({
 						'play': function() {
+						
+							/* we need to create a new buffer source every time the note is played */
+							source = audio.createBufferSource();
+							source.buffer = decoded;
+												
+							/* if volume has been specified, we need to route via an AudioGainNode */
+							if(soundSpec.volume) {
+								var gain = audio.createGainNode();
+								source.connect(gain);
+								gain.connect(audio.destination);
+								gain.gain.volume = soundSpec.volume;
+							} else {
+								source.connect(audio.destination);
+							}
+							
+							/* play! */
 							source.noteOn(0);
 						},
 						'stop': function() {
+						
+							/* stop :'( */
 							source.noteOff(0);
 						}
 					});
