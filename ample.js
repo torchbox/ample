@@ -232,13 +232,9 @@
 							} else {
 								source.connect(audio.destination);
 							}
-							
-							/* play! */
 							source.noteOn(0);
 						},
 						'stop': function() {
-						
-							/* stop :'( */
 							source.noteOff(0);
 						}
 					});
@@ -258,45 +254,15 @@
 	
 	var Ample = {};
 	
-	/* used to detect if the client supports web audio api */
-	Ample.detectWebkitAudio = function () {
-		try {
-			new webkitAudioContext();
-			return true;
-		} catch(e) {
-			return false;
-		}
-	}
-	
-	/* used	to detect if the browser supports HTML 5 audio tags */
-	Ample.detectHtmlAudio = function () {
-		if(!!document.createElement('audio').canPlayType) {
-			return true;
-		}
-		return false;
-	}
-	
-	/* build up a list of available drivers for the current browser */
-	var drivers = [];
-	if(Ample.detectWebkitAudio()) {
-		drivers.push(WebAudioDriver());
-	}
-	
-	if(Ample.detectHtmlAudio()) {
-		if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
-			/* trust these browsers to do html audio better than flash... */
-			drivers.push(HtmlAudioDriver());
-			drivers.push(FlashMp3Driver());
-		} else {
-			/* otherwise rely on flash */
-			drivers.push(FlashMp3Driver());
-			drivers.push(HtmlAudioDriver());
-		}
+	var drivers = [WebAudioDriver()];	
+	if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
+		/* trust these browsers to do html audio better than flash... */
+		drivers.concat([HtmlAudioDriver(), FlashMp3Driver()]);
 	} else {
-		/* this should be the default for old versions of IE etc */
-		drivers.push(FlashMp3Driver());
+		/* otherwise rely on flash first */
+		drivers.concat([FlashMp3Driver(), HtmlAudioDriver()]);
 	}
-		
+	
 	Ample.openSound = function(soundSpec) {
 		var driverIndex = 0;
 		function tryDriver() {
