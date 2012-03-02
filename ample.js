@@ -207,23 +207,34 @@
 		
 		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {		
 			var path = soundSpec.mp3Path || soundSpec.mp3Path != '' ? soundSpec.mp3Path : soundSpec.oggPath;		
-			var buffer, source = audio.createBufferSource(), request = new XMLHttpRequest();
+			var request = new XMLHttpRequest();
 			
 			/* request audio data and decode */
 			request.addEventListener('load', function(e) {
 				audio.decodeAudioData(request.response, function(decoded) {
 					/* we now have decoded audio data */
+					var source = audio.createBufferSource();
 					source.buffer = decoded;
+					source.loop = true;
 					
 					/* if volume has been set, we need to route via an AudioGainNode */
 					if(soundSpec.volume) {
-						var gain = context.createGainNode();
-						source.connect(gainNode);
+						var gain = audio.createGainNode();
+						source.connect(gain);
 						gain.connect(audio.destination);
 						gain.gain.volume = soundSpec.volume;
 					} else {
 						source.connect(audio.destination);
 					}
+					
+					onSuccess({
+						'play': function() {
+							source.noteOn(0);
+						},
+						'stop': function() {
+							source.noteOff(0);
+						}
+					});
 					
 				}, function(e) { onFailure(); });
 			});
@@ -232,15 +243,6 @@
 			request.open('GET', path, true);
 			request.responseType = "arraybuffer";
 			request.send();
-			
-			onSuccess({
-				'play': function() {
-					source.noteOn(0);
-				},
-				'stop': function() {
-					source.noteOff(0);
-				}
-			});
 			
 			return self;
 		}
