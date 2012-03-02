@@ -296,9 +296,6 @@
 		/* this should be the default for old versions of IE etc */
 		drivers.push(FlashMp3Driver());
 	}
-	
-	/* most browsers will work fine with the FlashMp3 driver */
-	drivers.push(FlashMp3Driver());
 		
 	Ample.openSound = function(soundSpec) {
 		var driverIndex = 0;
