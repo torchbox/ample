@@ -188,13 +188,79 @@
 		return self;
 	}
 	
+	function WebAudioDriver() {
+		var self = BaseDriver();
+		self.driverName = 'WebAudioDriver';
+		
+		/* our audio context */
+		var audio;
+				
+		self.init = function(onSuccess, onFailure) {
+			try {
+				// we need an audio context to work with..
+				audio = new webkitAudioContext();			
+				onSuccess();
+			} catch(e) {
+				onFailure();
+			}
+			return self;
+		}
+		
+		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {		
+			var path = soundSpec.mp3Path || soundSpec.mp3Path != '' ? soundSpec.mp3Path : soundSpec.oggPath;		
+			var request = new XMLHttpRequest();
+			
+			/* request audio data and decode */
+			request.addEventListener('load', function(e) {
+				audio.decodeAudioData(request.response, function(decoded) {
+				
+					/* we now have decoded audio data */					
+					var source = null;
+					onSuccess({
+						'play': function() {
+						
+							/* we need to create a new buffer source every time the note is played */
+							source = audio.createBufferSource();
+							source.buffer = decoded;
+												
+							/* if volume has been specified, we need to route via an AudioGainNode */
+							if(soundSpec.volume) {
+								var gain = audio.createGainNode();
+								source.connect(gain);
+								gain.connect(audio.destination);
+								gain.gain.volume = soundSpec.volume;
+							} else {
+								source.connect(audio.destination);
+							}
+							source.noteOn(0);
+						},
+						'stop': function() {
+							source.noteOff(0);
+						}
+					});
+					
+				}, function(e) { onFailure(); });
+			});
+			
+			/* trigger XHR */
+			request.open('GET', path, true);
+			request.responseType = "arraybuffer";
+			request.send();
+			
+			return self;
+		}
+		return self;
+	}
+	
 	var Ample = {};
 	
+	var drivers = [WebAudioDriver()];	
 	if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
 		/* trust these browsers to do html audio better than flash... */
-		var drivers = [HtmlAudioDriver(), FlashMp3Driver()];
+		drivers.concat([HtmlAudioDriver(), FlashMp3Driver()]);
 	} else {
-		var drivers = [FlashMp3Driver(), HtmlAudioDriver()];
+		/* otherwise rely on flash first */
+		drivers.concat([FlashMp3Driver(), HtmlAudioDriver()]);
 	}
 	
 	Ample.openSound = function(soundSpec) {
