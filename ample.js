@@ -281,8 +281,20 @@
 	if(Ample.detectWebkitAudio()) {
 		drivers.push(WebAudioDriver());
 	}
+	
 	if(Ample.detectHtmlAudio()) {
-		drivers.push(HtmlAudioDriver());
+		if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
+			/* trust these browsers to do html audio better than flash... */
+			drivers.push(HtmlAudioDriver());
+			drivers.push(FlashMp3Driver());
+		} else {
+			/* otherwise rely on flash */
+			drivers.push(FlashMp3Driver());
+			drivers.push(HtmlAudioDriver());
+		}
+	} else {
+		/* this should be the default for old versions of IE etc */
+		drivers.push(FlashMp3Driver());
 	}
 	
 	/* most browsers will work fine with the FlashMp3 driver */
