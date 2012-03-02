@@ -251,16 +251,36 @@
 	
 	var Ample = {};
 	
-	if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
-		/* trust these browsers to do html audio better than flash... */
-		var drivers = [HtmlAudioDriver(), FlashMp3Driver()];
-	} else if($.browser.webkit) {
-		/* webkit nightlies & chrome now support web audio, but we should still fallback to regular methods */
-		var drivers = [WebAudioDriver(), HtmlAudioDriver(), FlashMp3Driver()];
-	} else {
-		var drivers = [FlashMp3Driver(), HtmlAudioDriver()];
+	/* used to detect if the client supports web audio api */
+	Ample.detectWebkitAudio = function () {
+		try {
+			new webkitAudioContext();
+			return true;
+		} catch(e) {
+			return false;
+		}
 	}
 	
+	/* used	to detect if the browser supports HTML 5 audio tags */
+	Ample.detectHtmlAudio = function () {
+		if(!!document.createElement('audio').canPlayType) {
+			return true;
+		}
+		return false;
+	}
+	
+	/* build up a list of available drivers for the current browser */
+	var drivers = [];
+	if(Ample.detectWebkitAudio()) {
+		drivers.push(WebAudioDriver());
+	}
+	if(Ample.detectHtmlAudio()) {
+		drivers.push(HtmlAudioDriver());
+	}
+	
+	/* most browsers will work fine with the FlashMp3 driver */
+	drivers.push(FlashMp3Driver());
+		
 	Ample.openSound = function(soundSpec) {
 		var driverIndex = 0;
 		function tryDriver() {
