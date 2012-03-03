@@ -14,7 +14,7 @@
 		self.init = function(onSuccess, onFailure) {
 			/* default no-initialisation-required initialiser, immediately returns success */
 			onSuccess();
-		}
+		};
 		
 		var initStarted = false;
 		var initSucceeded = false;
@@ -57,14 +57,14 @@
 				/* fail opening immediately */
 				onFailure();
 			}
-		}
+		};
 		
 		/* subclasses override self.openSoundAsInitialised to perform the action of
 			opening a sound once self.init has succeeded. */
 		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {
 			/* default no-behaviour-implemented behaviour: immediately return failure */
 			onFailure();
-		}
+		};
 		
 		return self;
 	}
@@ -107,7 +107,7 @@
 					hasReturned = true;
 					onFailure();
 				}
-			}, false)
+			}, false);
 			if (soundSpec.volume) audioElem.volume = soundSpec.volume;
 			
 			/* listening for the 'canplaythrough' event would be more correct, but browsers are inconsistent about
@@ -123,12 +123,12 @@
 						'stop': function() {
 							audioElem.pause();
 						}
-					})
+					});
 				}
-			}, false)
+			}, false);
 			
 			audioElem.load();
-		}
+		};
 		
 		return self;
 	}
@@ -152,7 +152,7 @@
 				function(e) { /* oncomplete callback */
 					if (e.success) {
 						/* check every 100ms whether flash methods have appeared */
-						function ping() {
+						var ping = function() {
 							if (e.ref.openSound) {
 								flashElem = e.ref;
 								
@@ -160,30 +160,30 @@
 								passing in the sound ID */
 								Ample.flashMp3DriverSoundLoaded = function(soundId) {
 									successCallbacksBySoundId[soundId]({
-										'play': function() {flashElem.playSound(soundId)},
-										'stop': function() {flashElem.stopSound(soundId)}
-									})
-								}
+										'play': function() {flashElem.playSound(soundId);},
+										'stop': function() {flashElem.stopSound(soundId);}
+									});
+								};
 								
 								onSuccess();
 							} else {
 								setTimeout(ping, 100);
 							}
-						}
+						};
 						ping();
 					} else {
 						onFailure();
 					}
 				}
 			);
-		}
+		};
 		
 		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {
 			var soundId = flashElem.openSound(soundSpec.mp3Path, soundSpec.volume || 1);
 			/* store the success callback to be called when the swf
 			pings Ample.flashMp3DriverSoundLoaded */
 			successCallbacksBySoundId[soundId] = onSuccess;
-		}
+		};
 		
 		return self;
 	}
@@ -198,23 +198,23 @@
 		self.init = function(onSuccess, onFailure) {
 			try {
 				// we need an audio context to work with..
-				audio = new webkitAudioContext();			
+				audio = new webkitAudioContext();
 				onSuccess();
 			} catch(e) {
 				onFailure();
 			}
 			return self;
-		}
+		};
 		
-		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {		
-			var path = soundSpec.mp3Path || soundSpec.mp3Path != '' ? soundSpec.mp3Path : soundSpec.oggPath;		
+		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {
+			var path = soundSpec.mp3Path || soundSpec.mp3Path !== '' ? soundSpec.mp3Path : soundSpec.oggPath;
 			var request = new XMLHttpRequest();
 			
 			/* request audio data and decode */
 			request.addEventListener('load', function(e) {
 				audio.decodeAudioData(request.response, function(decoded) {
 				
-					/* we now have decoded audio data */					
+					/* we now have decoded audio data */
 					var source = null;
 					onSuccess({
 						'play': function() {
@@ -248,13 +248,13 @@
 			request.send();
 			
 			return self;
-		}
+		};
 		return self;
 	}
 	
 	var Ample = {};
 	
-	var drivers = [WebAudioDriver()];	
+	var drivers = [WebAudioDriver()];
 	if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
 		/* trust these browsers to do html audio better than flash... */
 		drivers.concat([HtmlAudioDriver(), FlashMp3Driver()]);
@@ -278,10 +278,10 @@
 					/* all drivers failed */
 					if (soundSpec.onFailure) soundSpec.onFailure();
 				}
-			})
+			});
 		}
 		tryDriver();
-	}
+	};
 	
 	window.Ample = Ample;
 })();
