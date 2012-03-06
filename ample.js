@@ -196,20 +196,23 @@
 		var audio;
 				
 		self.init = function(onSuccess, onFailure) {
-			try {
+			if (webkitAudioContext) {
 				// we need an audio context to work with..
 				audio = new webkitAudioContext();
 				onSuccess();
-			} catch(e) {
+			} else {
 				onFailure();
 			}
-			return self;
 		};
 		
 		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {
 			var path = soundSpec.mp3Path || soundSpec.mp3Path !== '' ? soundSpec.mp3Path : soundSpec.oggPath;
 			var request = new XMLHttpRequest();
 			
+			request.addEventListener('error', function(e) {
+				onFailure();
+			});
+
 			/* request audio data and decode */
 			request.addEventListener('load', function(e) {
 				audio.decodeAudioData(request.response, function(decoded) {
@@ -257,12 +260,12 @@
 	var drivers = [WebAudioDriver()];
 	if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
 		/* trust these browsers to do html audio better than flash... */
-		drivers.concat([HtmlAudioDriver(), FlashMp3Driver()]);
+		drivers = drivers.concat([HtmlAudioDriver(), FlashMp3Driver()]);
 	} else {
 		/* otherwise rely on flash first */
-		drivers.concat([FlashMp3Driver(), HtmlAudioDriver()]);
+		drivers = drivers.concat([FlashMp3Driver(), HtmlAudioDriver()]);
 	}
-	
+
 	Ample.openSound = function(soundSpec) {
 		var driverIndex = 0;
 		function tryDriver() {
