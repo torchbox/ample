@@ -1,4 +1,13 @@
 (function() {
+	/* helper function for creating DOM elements */
+	function createDOMElement(name, attrs) {
+		var elem = document.createElement(name);
+		for (var attrName in attrs) {
+			elem.setAttribute(attrName, attrs[attrName]);
+		}
+		return elem;
+	}
+
 	/* a Driver encapsulates a particular sound-generating mechanism and exposes a single
 	public endpoint, openSound, which accepts a sound spec object, onSuccess callback and
 	onFailure callback, and asynchronously creates a sound object from the sound spec.
@@ -84,25 +93,28 @@
 			}
 			
 			/* start by trying to create an audio element */
-			/* TODO: html-escape URLs */
-			var audio = $('<audio>\
-				<source type="audio/mpeg; codecs=mp3" src="'+soundSpec.mp3Path+'" />\
-				<source type="audio/ogg; codecs=vorbis" src="'+soundSpec.oggPath+'" />\
-			</audio>');
-			var audioElem = audio.get(0);
+			var audioElem = createDOMElement('audio');
 			if (!audioElem.canPlayType) {
 				hasConfirmedLackOfSupport = true;
 				onFailure();
 				return;
 			}
+
+			/* browser recognises HTML5 audio - proceed to set sources */
+			var sourceElems = [
+				createDOMElement('source', {'type': 'audio/mpeg; codecs=mp3', 'src': soundSpec.mp3Path}),
+				createDOMElement('source', {'type': 'audio/ogg; codecs=vorbis', 'src': soundSpec.oggPath})
+			];
+			for (var i = 0; i < sourceElems.length; i++) {
+				audioElem.appendChild(sourceElems[i]);
+			}
 			
 			var hasReturned = false; /* ensure that we only call onSuccess/onFailure once, even if
 				the relevant audio events are triggered multiple times for some reason */
 			
-			/* browser recognises HTML5 audio - proceed to set sources */
-			$('body').append(audio);
+			document.body.appendChild(audioElem);
 			/* listen for an error on the last source element, which indicates that neither source was playable */
-			audio.find('source:last').get(0).addEventListener('error', function() {
+			sourceElems[sourceElems.length - 1].addEventListener('error', function() {
 				if (!hasReturned) {
 					hasReturned = true;
 					onFailure();
@@ -141,7 +153,8 @@
 		var successCallbacksBySoundId = {};
 		
 		self.init = function(onSuccess, onFailure) {
-			$('body').append('<div id="ample_mp3_manager" style="position: absolute; top: -100px;"></div>');
+			var managerElement = createDOMElement('div', {'id': 'ample_mp3_manager', 'style': 'position: absolute; top: -100px;'});
+			document.body.appendChild(managerElement);
 			swfobject.embedSWF(Ample.swfPath, 'ample_mp3_manager',
 				'16', '16', /* Flash movie dimensions */
 				'9', /* minimum Flash version required */
@@ -196,7 +209,7 @@
 		var audio;
 				
 		self.init = function(onSuccess, onFailure) {
-			if (webkitAudioContext) {
+			if (window.webkitAudioContext) {
 				// we need an audio context to work with..
 				audio = new webkitAudioContext();
 				onSuccess();
@@ -258,12 +271,12 @@
 	var Ample = {};
 	
 	var drivers = [WebAudioDriver()];
-	if ($.browser.mozilla || ($.browser.safari && !navigator.userAgent.match(/Chrome/))) {
-		/* trust these browsers to do html audio better than flash... */
-		drivers = drivers.concat([HtmlAudioDriver(), FlashMp3Driver()]);
-	} else {
-		/* otherwise rely on flash first */
+
+	if (navigator.userAgent.match(/Chrome/)) {
+		/* Chrome is somewhat unstable with large numbers (>50) of HTML Audio tags; favour Flash over HTML audio */
 		drivers = drivers.concat([FlashMp3Driver(), HtmlAudioDriver()]);
+	} else {
+		drivers = drivers.concat([HtmlAudioDriver(), FlashMp3Driver()]);
 	}
 
 	Ample.openSound = function(soundSpec) {

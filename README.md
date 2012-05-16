@@ -14,10 +14,8 @@ Flash are out of luck.
 Setup
 -----
 
-ample requires jQuery (tested with 1.7.1) and SWFObject 2.2 - ensure that these are included in your HTML header along
-with ample.js:
+ample requires SWFObject 2.2 - ensure that this is included in your HTML header along with ample.js:
 
-    <script src="/static/js/jquery-1.7.1.min.js"></script>
     <script src="/static/js/swfobject.js"></script>
     <script src="/static/js/ample.js"></script>
 

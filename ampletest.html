@@ -2,25 +2,27 @@
 <html>
 	<head>
 		<title>ample sample example</title>
-		<script src="jquery-1.7.1.min.js"></script>
 		<script src="swfobject.js"></script>
 		<script src="ample.js"></script>
 		<script>
 			Ample.swfPath = '/mp3manager.swf';
 			
-			$(function() {
+			function go() {
 				Ample.openSound({
 					'oggPath':'http://christmascard.s3.amazonaws.com/ogg/a2_3.ogg',
 					'mp3Path':'http://christmascard.s3.amazonaws.com/mp3/a2_3.mp3',
 					'volume': 0.5,
 					'onSuccess': function(sample) {
-						btn = $('<input type="button" value="boooooom" />');
-						$('body').append(btn);
-						btn.mousedown(function() {
+						var btn = document.createElement('input');
+						btn.setAttribute('type', 'button');
+						btn.setAttribute('value', 'boooooom');
+						document.body.appendChild(btn);
+						btn.addEventListener('mousedown', function() {
 							sample.play();
-						}).mouseup(function() {
+						}, false);
+						btn.addEventListener('mouseup', function() {
 							sample.stop();
-						})
+						}, false);
 					},
 					'onFailure': function() {
 						alert('oh no!');
@@ -30,21 +32,24 @@
 					'oggPath':'http://christmascard.s3.amazonaws.com/ogg/b2_3.ogg',
 					'mp3Path':'http://christmascard.s3.amazonaws.com/mp3/b2_3.mp3',
 					'onSuccess': function(sample) {
-						btn = $('<input type="button" value="boooooom" />');
-						$('body').append(btn);
-						btn.mousedown(function() {
+						var btn = document.createElement('input');
+						btn.setAttribute('type', 'button');
+						btn.setAttribute('value', 'boooooom');
+						document.body.appendChild(btn);
+						btn.addEventListener('mousedown', function() {
 							sample.play();
-						}).mouseup(function() {
+						}, false);
+						btn.addEventListener('mouseup', function() {
 							sample.stop();
-						})
+						}, false);
 					},
 					'onFailure': function() {
 						alert('oh no!');
 					}
 				});
-			})
+			}
 		</script>
 	</head>
-	<body>
+	<body onload="go()">
 	</body>
 </html>
