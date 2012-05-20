@@ -1,4 +1,9 @@
 (function() {
+	var mimeTypesByTypeIdentifier = {
+		'mp3': 'audio/mpeg; codecs=mp3',
+		'ogg-vorbis': 'audio/ogg; codecs=vorbis'
+	};
+
 	/* helper function for creating DOM elements */
 	function createDOMElement(name, attrs) {
 		var elem = document.createElement(name);
@@ -6,6 +11,52 @@
 			elem.setAttribute(attrName, attrs[attrName]);
 		}
 		return elem;
+	}
+
+	/* A non-active audio element used for testing canPlayType */
+	var testAudioElem = createDOMElement('audio');
+	var hasHtmlAudio = testAudioElem.canPlayType;
+
+	/* Representation of an individual sound file (which may be one of several passed to Ample.openSound) */
+	function Source(typeIdentifier, url) {
+		var self = {
+			typeIdentifier: typeIdentifier,
+			url: url,
+			mimeType: mimeTypesByTypeIdentifier[typeIdentifier]
+		};
+
+		/* return a truthy value (specifically, the string 'maybe' or 'probably') if this source's type
+		is one that can be played through native HTML audio */
+		self.canPlayTypeNatively = function() {
+			if (!hasHtmlAudio || !self.mimeType) return false;
+			return testAudioElem.canPlayType(self.mimeType);
+		};
+
+		var data;
+		self.getData = function(onSuccess, onFailure) {
+			if (data) {
+				onSuccess(data);
+				return;
+			}
+
+			var request = new XMLHttpRequest();
+
+			request.addEventListener('error', function(e) {
+				onFailure();
+			});
+
+			request.addEventListener('load', function(e) {
+				data = request.response;
+				onSuccess(data);
+			});
+
+			/* trigger XHR */
+			request.open('GET', self.url, true);
+			request.responseType = "arraybuffer";
+			request.send();
+		};
+
+		return self;
 	}
 
 	/* a Driver encapsulates a particular sound-generating mechanism and exposes a single
@@ -77,7 +128,45 @@
 		
 		return self;
 	}
-	
+
+	/* Abstract superclass for drivers that consider each source in turn until they
+	find a suitable one that works */
+	function SingleSourceDriver() {
+		var self = BaseDriver();
+		self.driverName = 'SingleSourceDriver';
+
+		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {
+			var sourceIndex = 0;
+
+			var trySource = function() {
+				if (sourceIndex < soundSpec.sources.length) {
+					self.openSoundFromSource(soundSpec, soundSpec.sources[sourceIndex], function(sound) {
+						/* success */
+						onSuccess(sound);
+					}, function() {
+						/* failure; try next source */
+						sourceIndex++;
+						trySource();
+					});
+				} else {
+					/* no more sources to try */
+					onFailure();
+				}
+			};
+
+			trySource();
+		};
+
+		/* subclasses override self.openSoundFromSource to attempt opening a sound
+			from the given source, and call onSuccess or onFailure as appropriate */
+		self.openSoundFromSource = function(soundSpec, source, onSuccess, onFailure) {
+			/* default no-behaviour-implemented behaviour: immediately return failure */
+			onFailure();
+		};
+
+		return self;
+	}
+
 	function HtmlAudioDriver() {
 		var self = BaseDriver();
 		self.driverName = 'HtmlAudioDriver';
@@ -85,27 +174,30 @@
 		var hasConfirmedLackOfSupport = false;
 		
 		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {
-			/* if we've previously confirmed that the browser doesn't recognise audio.canPlayType,
-				don't bother repeating the exercise */
-			if (hasConfirmedLackOfSupport) {
-				onFailure();
-				return;
-			}
-			
-			/* start by trying to create an audio element */
-			var audioElem = createDOMElement('audio');
-			if (!audioElem.canPlayType) {
-				hasConfirmedLackOfSupport = true;
+			if (!hasHtmlAudio) {
 				onFailure();
 				return;
 			}
 
-			/* browser recognises HTML5 audio - proceed to set sources */
-			var sourceElems = [
-				createDOMElement('source', {'type': 'audio/mpeg; codecs=mp3', 'src': soundSpec.mp3Path}),
-				createDOMElement('source', {'type': 'audio/ogg; codecs=vorbis', 'src': soundSpec.oggPath})
-			];
-			for (var i = 0; i < sourceElems.length; i++) {
+			/* create a source element for each source that has a possibly-supported type */
+			var sourceElems = [];
+			for (var i = 0; i < soundSpec.sources.length; i++) {
+				var source = soundSpec.sources[i];
+				if (source.canPlayTypeNatively()) {
+					sourceElems.push(
+						createDOMElement('source', {'type': source.mimeType, 'src': source.url})
+					);
+				}
+			}
+			if (sourceElems.length === 0) {
+				/* no supported sources; give up now */
+				onFailure();
+				return;
+			}
+
+			/* start by trying to create an audio element */
+			var audioElem = createDOMElement('audio');
+			for (i = 0; i < sourceElems.length; i++) {
 				audioElem.appendChild(sourceElems[i]);
 			}
 			
@@ -146,7 +238,7 @@
 	}
 	
 	function FlashMp3Driver() {
-		var self = BaseDriver();
+		var self = SingleSourceDriver();
 		self.driverName = 'FlashMp3Driver';
 		
 		var flashElem;
@@ -191,18 +283,23 @@
 			);
 		};
 		
-		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {
-			var soundId = flashElem.openSound(soundSpec.mp3Path, soundSpec.volume || 1);
-			/* store the success callback to be called when the swf
-			pings Ample.flashMp3DriverSoundLoaded */
-			successCallbacksBySoundId[soundId] = onSuccess;
+		self.openSoundFromSource = function(soundSpec, source, onSuccess, onFailure) {
+			if (source.typeIdentifier === 'mp3') {
+				var soundId = flashElem.openSound(source.url, soundSpec.volume || 1);
+				/* store the success callback to be called when the swf
+				pings Ample.flashMp3DriverSoundLoaded */
+				successCallbacksBySoundId[soundId] = onSuccess;
+			} else {
+				/* source is not mp3 - reject it */
+				onFailure();
+			}
 		};
 		
 		return self;
 	}
 	
 	function WebAudioDriver() {
-		var self = BaseDriver();
+		var self = SingleSourceDriver();
 		self.driverName = 'WebAudioDriver';
 		
 		/* our audio context */
@@ -218,17 +315,16 @@
 			}
 		};
 		
-		self.openSoundAsInitialised = function(soundSpec, onSuccess, onFailure) {
-			var path = soundSpec.mp3Path || soundSpec.mp3Path !== '' ? soundSpec.mp3Path : soundSpec.oggPath;
-			var request = new XMLHttpRequest();
-			
-			request.addEventListener('error', function(e) {
+		self.openSoundFromSource = function(soundSpec, source, onSuccess, onFailure) {
+			/* reject source immediately if it's not one that Audio.canPlayType claims it might to be able to play */
+			if (!source.canPlayTypeNatively()) {
 				onFailure();
-			});
+				return;
+			}
 
-			/* request audio data and decode */
-			request.addEventListener('load', function(e) {
-				audio.decodeAudioData(request.response, function(decoded) {
+			source.getData(function(data) {
+				/* successfully fetched data - proceed to decode */
+				audio.decodeAudioData(data, function(decoded) {
 				
 					/* we now have decoded audio data */
 					var source = null;
@@ -256,15 +352,12 @@
 					});
 					
 				}, function(e) { onFailure(); });
+			}, function() {
+				/* failed to fetch data */
+				onFailure();
 			});
-			
-			/* trigger XHR */
-			request.open('GET', path, true);
-			request.responseType = "arraybuffer";
-			request.send();
-			
-			return self;
 		};
+
 		return self;
 	}
 	
@@ -280,6 +373,15 @@
 	}
 
 	Ample.openSound = function(soundSpec) {
+		var sources = [];
+		if (soundSpec.mp3Path) {
+			sources.push(Source('mp3', soundSpec.mp3Path));
+		}
+		if (soundSpec.oggPath) {
+			sources.push(Source('ogg-vorbis', soundSpec.oggPath));
+		}
+		soundSpec.sources = sources;
+
 		var driverIndex = 0;
 		function tryDriver() {
 			drivers[driverIndex].openSound(soundSpec, function(sound) {
