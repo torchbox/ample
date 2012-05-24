@@ -9,8 +9,7 @@
 			
 			function go() {
 				Ample.openSound({
-					'oggPath':'http://christmascard.s3.amazonaws.com/ogg/a2_3.ogg',
-					'mp3Path':'http://christmascard.s3.amazonaws.com/mp3/a2_3.mp3',
+					'sources': {'ogg':'http://christmascard.s3.amazonaws.com/ogg/a2_3.ogg', 'mp3':'http://christmascard.s3.amazonaws.com/mp3/a2_3.mp3'},
 					'volume': 0.5,
 					'onSuccess': function(sample) {
 						var btn = document.createElement('input');
@@ -29,8 +28,7 @@
 					}
 				});
 				Ample.openSound({
-					'oggPath':'http://christmascard.s3.amazonaws.com/ogg/b2_3.ogg',
-					'mp3Path':'http://christmascard.s3.amazonaws.com/mp3/b2_3.mp3',
+					'sources': {'ogg':'http://christmascard.s3.amazonaws.com/ogg/b2_3.ogg', 'mp3':'http://christmascard.s3.amazonaws.com/mp3/b2_3.mp3'},
 					'onSuccess': function(sample) {
 						var btn = document.createElement('input');
 						btn.setAttribute('type', 'button');

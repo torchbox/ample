@@ -372,21 +372,30 @@
 		drivers = drivers.concat([HtmlAudioDriver(), FlashMp3Driver()]);
 	}
 
-	Ample.openSound = function(soundSpec) {
-		var sources = [];
-		if (soundSpec.mp3Path) {
-			sources.push(Source('mp3', soundSpec.mp3Path));
+	Ample.openSound = function(opts) {
+		var soundSpec = {
+			'sources': [],
+			'volume': opts.volume
+		};
+
+		/* deprecated options - mp3Path and oggPath - superseded by 'sources' list */
+		if (opts.mp3Path) {
+			soundSpec.sources.push(Source('mp3', opts.mp3Path));
 		}
-		if (soundSpec.oggPath) {
-			sources.push(Source('ogg-vorbis', soundSpec.oggPath));
+		if (opts.oggPath) {
+			soundSpec.sources.push(Source('ogg-vorbis', opts.oggPath));
 		}
-		soundSpec.sources = sources;
+		if (opts.sources) {
+			for (var typeId in opts.sources) {
+				soundSpec.sources.push(Source(typeId, opts.sources[typeId]));
+			}
+		}
 
 		var driverIndex = 0;
 		function tryDriver() {
 			drivers[driverIndex].openSound(soundSpec, function(sound) {
 				/* success */
-				if (soundSpec.onSuccess) soundSpec.onSuccess(sound);
+				if (opts.onSuccess) opts.onSuccess(sound);
 			}, function() {
 				/* failure; try next driver */
 				driverIndex++;
@@ -394,7 +403,7 @@
 					tryDriver();
 				} else {
 					/* all drivers failed */
-					if (soundSpec.onFailure) soundSpec.onFailure();
+					if (opts.onFailure) opts.onFailure();
 				}
 			});
 		}
